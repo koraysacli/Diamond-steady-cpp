@@ -1,0 +1,9 @@
+cells=1200000
+Mach=3
+alpha_deg=0
+T_K=220.940822523
+p_Pa=2801.54662082
+rho=0.0441733151943
+U=893.931420629
+reference_area=0.0002
+LTS: Time is iteration count, NOT physical seconds.

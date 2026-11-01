@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+cd "$(dirname "$0")" || exit 1
+export HWLOC_COMPONENTS=-gl OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+source /opt/openfoam14/etc/bashrc ParaView_TYPE=none
+set -euo pipefail
+exec 9>.run.lock
+flock -n 9 || { echo 'Bu vaka zaten calisiyor.'; exit 1; }
+trap 'echo "HATA: log dosyalarini kontrol edin; tamamlanma/yakinsama dogrulanmadi."' ERR
+if [ ! -f system/blockMeshDict ]; then
+    mkdir -p build
+    g++ -std=c++17 -O2 -Wall -Wextra "$PWD/src/generateCase.cpp" -o build/generateCase
+    build/generateCase "$PWD"
+fi
+if [ ! -f constant/polyMesh/points ]; then
+    echo '1.2 milyon hucreli ag olusturuluyor.'
+    blockMesh > log.blockMesh 2>&1
+fi
+if [ ! -f log.checkMesh ] || ! grep -q 'Mesh OK' log.checkMesh; then
+    checkMesh > log.checkMesh 2>&1
+fi
+grep -q 'Mesh OK' log.checkMesh
+if [ ! -d processor0 ]; then decomposePar > log.decomposePar 2>&1; fi
+n=$(foamDictionary system/decomposeParDict -entry numberOfSubdomains -value)
+echo "$n MPI sureci: localEuler ile steady yakinSamasi. Time fiziksel saniye DEGILDIR."
+mpirun -np "$n" --bind-to core foamRun -parallel > log.foamRun 2>&1
+echo 'Son kayit birlestiriliyor.'
+reconstructPar -latestTime > log.reconstructPar 2>&1
+echo 'Calisma tamamlandi. Yakinsama icin postProcessing/steadyDiagnostics/coefficients.csv kontrol edilmeli.'

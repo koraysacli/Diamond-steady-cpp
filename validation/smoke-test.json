@@ -1,0 +1,11 @@
+{
+  "serial_parallel_test_iterations": 40,
+  "coarse_cells": 12000,
+  "parallel_processes": 2,
+  "serial_Cd": 0.00853779054335,
+  "parallel_Cd": 0.00853779024708,
+  "serial_Cl": -2.88651451139e-10,
+  "parallel_Cl": -1.81906927362e-08,
+  "absolute_tolerance": 1e-06,
+  "result": "PASS: compilation, clean exit and coefficient reduction. Not a convergence or grid independence test."
+}

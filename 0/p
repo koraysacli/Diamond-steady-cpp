@@ -1,0 +1,15 @@
+FoamFile { version 2.0; format ascii; class volScalarField; object p; }
+dimensions [1 -1 -2 0 0 0 0];
+internalField uniform 2801.54662081689;
+boundaryField {
+inlet { type fixedValue; value uniform 2801.54662081689;
+}
+farfield { type fixedValue; value uniform 2801.54662081689;
+}
+outlet { type zeroGradient;
+}
+diamond { type zeroGradient;
+}
+frontAndBack { type empty;
+}
+}

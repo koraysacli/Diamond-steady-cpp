@@ -1,0 +1,99 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+application foamRun;
+solver shockFluid;
+startFrom latestTime;
+startTime 0;
+stopAt endTime;
+endTime 20000;
+deltaT 1;
+adjustTimeStep no;
+writeControl timeStep;
+writeInterval 1000;
+purgeWrite 3;
+writeFormat binary;
+writePrecision 10;
+writeCompression off;
+timeFormat general;
+timePrecision 12;
+runTimeModifiable true;
+functions {
+steadyDiagnostics {
+type coded;
+libs ("libutilityFunctionObjects.so");
+executeControl timeStep;
+executeInterval 20;
+writeControl none;
+codeInclude #{
+#include "fvMesh.H"
+#include "volFields.H"
+#include "surfaceFields.H"
+#include "PstreamReduceOps.H"
+#include "OSspecific.H"
+#include "CaseConfig.hpp"
+#include <fstream>
+#include <iomanip>
+#};
+codeOptions #{ -I$(FOAM_CASE)/src #};
+codeData #{ scalarField previousP_; #};
+codeExecute #{
+// Her reportEvery iterasyonda, tum MPI sureclerinin katkisini topla.
+const auto c = diamond::conditions();
+const auto& p = mesh().lookupObject<volScalarField>("p");
+const auto& T = mesh().lookupObject<volScalarField>("T");
+const auto& phi = mesh().lookupObject<surfaceScalarField>("phi");
+const scalar q = 0.5*c.rho*c.speed*c.speed;
+vector force(vector::zero);
+scalar netFlux=0, absFlux=0, sumChange=0, totalV=0;
+scalar frontPressure=0, frontArea=0, rearPressure=0, rearArea=0;
+forAll(mesh().boundary(), patchi) {
+    const auto& patch = mesh().boundary()[patchi];
+    if (patch.name()=="diamond") {
+        const auto& pp=p.boundaryField()[patchi];
+        const auto& sf=mesh().Sf().boundaryField()[patchi];
+        const auto& cf=mesh().Cf().boundaryField()[patchi];
+        forAll(pp, facei) {
+            // Sf: akiskan disina, kati icine; bu nedenle arti isaret.
+            force += (pp[facei]-c.p)*sf[facei];
+            if (cf[facei].x()<diamond::chord/2) {
+                frontPressure += pp[facei]*mag(sf[facei]); frontArea += mag(sf[facei]);
+            } else {
+                rearPressure += pp[facei]*mag(sf[facei]); rearArea += mag(sf[facei]);
+            }
+        }
+    } else if (patch.name()=="inlet" || patch.name()=="outlet" || patch.name()=="farfield") {
+        for (const scalar f : phi.boundaryField()[patchi]) { netFlux+=f; absFlux+=mag(f); }
+    }
+}
+reduce(force,sumOp<vector>());
+reduce(netFlux,sumOp<scalar>()); reduce(absFlux,sumOp<scalar>());
+reduce(frontPressure,sumOp<scalar>()); reduce(frontArea,sumOp<scalar>());
+reduce(rearPressure,sumOp<scalar>()); reduce(rearArea,sumOp<scalar>());
+scalar change=-1;
+if (previousP_.size()==p.primitiveField().size()) {
+    forAll(p, celli) {
+        sumChange += sqr((p[celli]-previousP_[celli])/q)*mesh().V()[celli];
+        totalV += mesh().V()[celli];
+    }
+    reduce(sumChange,sumOp<scalar>()); reduce(totalV,sumOp<scalar>());
+    change=Foam::sqrt(sumChange/totalV);
+}
+previousP_=p.primitiveField();
+const scalar cd=(force.x()*c.ux+force.y()*c.uy)/(c.speed*q*diamond::chord*diamond::span);
+const scalar cl=(-force.x()*c.uy+force.y()*c.ux)/(c.speed*q*diamond::chord*diamond::span);
+const scalar massError=mag(netFlux)/max(0.5*absFlux,scalar(VSMALL));
+const scalar minP=gMin(p.primitiveField()), maxP=gMax(p.primitiveField());
+const scalar minT=gMin(T.primitiveField());
+if (Pstream::master()) {
+    const fileName dir=mesh().time().globalPath()/"postProcessing"/"steadyDiagnostics";
+    mkDir(dir);
+    const fileName name=dir/"coefficients.csv";
+    const bool exists=isFile(name);
+    std::ofstream out(name.c_str(),std::ios::app);
+    if (!exists) out<<"iteration,Cd_pressure,Cl_pressure,mass_flux_imbalance,deltaCp_volume_rms,p_min,p_max,T_min,p_front_over_pinf,p_rear_over_pinf\n";
+    out<<std::setprecision(12)<<mesh().time().value()<<','<<cd<<','<<cl<<','<<massError<<','<<change<<','<<minP<<','<<maxP<<','<<minT<<','<<frontPressure/(max(frontArea,scalar(VSMALL))*c.p)<<','<<rearPressure/(max(rearArea,scalar(VSMALL))*c.p)<<'\n';
+    Info<<"STEADY iteration="<<mesh().time().value()<<" Cd="<<cd<<" Cl="<<cl<<" massError="<<massError<<" deltaCpRMS="<<change<<endl;
+}
+
+#};
+}
+}

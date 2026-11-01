@@ -1,0 +1,16 @@
+/build/
+/processor*/
+/constant/polyMesh/
+/[1-9]*/
+/0.*/
+/dynamicCode/
+/postProcessing/
+/visualization/
+/log*
+/.run.lock
+/core
+/core.*
+*.foam
+*.OpenFOAM
+*.pyc
+__pycache__/

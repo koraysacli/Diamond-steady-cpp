@@ -1,0 +1,10 @@
+THEORETICAL reference, NOT CFD result
+theta_deg=5.7105931375
+beta_deg=23.7009777411
+p_front_over_pinf=1.52986638875
+p_rear_over_pinf=0.629295269729
+T_front_over_Tinf=1.13168926704
+Mach_front=2.71493774574
+Mach_rear=3.30834842395
+Cd_pressure=0.014294779667
+Cl_pressure=0

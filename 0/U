@@ -1,0 +1,35 @@
+FoamFile { version 2.0; format ascii; class volVectorField; object U; }
+dimensions [0 1 -1 0 0 0 0];
+internalField uniform (893.931420629489 -0 0);
+boundaryField {
+inlet { type codedFixedValue; value uniform (893.931420629489 -0 0); name diamondFreestream_inlet;
+codeInclude #{
+#include "CaseConfig.hpp"
+#};
+codeOptions #{ -I$(FOAM_CASE)/src #};
+code #{
+// OpenFOAM codedFixedValue govdesi. Her iki serbest akis sinirinda kullanilir.
+const auto c = diamond::conditions();
+operator==(Foam::vector(c.ux, c.uy, 0));
+
+#};
+}
+farfield { type codedFixedValue; value uniform (893.931420629489 -0 0); name diamondFreestream_farfield;
+codeInclude #{
+#include "CaseConfig.hpp"
+#};
+codeOptions #{ -I$(FOAM_CASE)/src #};
+code #{
+// OpenFOAM codedFixedValue govdesi. Her iki serbest akis sinirinda kullanilir.
+const auto c = diamond::conditions();
+operator==(Foam::vector(c.ux, c.uy, 0));
+
+#};
+}
+outlet { type zeroGradient;
+}
+diamond { type slip;
+}
+frontAndBack { type empty;
+}
+}
