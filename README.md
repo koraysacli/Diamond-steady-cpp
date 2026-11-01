@@ -37,6 +37,8 @@ src/
 validation/            Theoretical reference and serial/parallel test
 monitor.py             Live convergence monitor
 analyze.py             Post-processing
+plot_results.py        README figures and results.json
+docs/                  Result figures and numbers
 Allrun                 End-to-end run script
 ```
 
@@ -85,19 +87,48 @@ After at least 5000 iterations, `monitor.py` checks the last 2000:
 | Normalised net mass flux | < 1e−4 |
 | ΔCp RMS (every 20 iterations) | < 1e−5 |
 
+## Results
+
+Final solution after 20,000 iterations. Dashed lines in the field plots are the inviscid oblique-shock / Prandtl–Meyer theory.
+
+| Quantity | CFD | Theory | Difference |
+|---|---|---|---|
+| Cd (wave drag) | 0.014286 | 0.014295 | −0.06% |
+| Cl | 5.5e−7 | 0 | — |
+| Front surface p/p∞ | 1.5296 | 1.5299 | −0.02% |
+| Rear surface p/p∞ | 0.6296 | 0.6293 | +0.04% |
+| Leading-edge shock angle β | 23.8° | 23.70° | +0.5% |
+
+The shock angle is estimated by fitting a line to the maximum density gradient, so it is limited by the sampling resolution. Numbers are in `docs/results.json`.
+
+### Numerical schlieren: shocks and expansion fans
+![Numerical schlieren](docs/images/schlieren.png)
+
+### Static pressure
+![Pressure](docs/images/pressure.png)
+
+### Mach number
+![Mach number](docs/images/mach.png)
+
+### Velocity magnitude
+![Velocity](docs/images/velocity.png)
+
+### Surface pressure coefficient
+![Surface Cp](docs/images/surface-cp.png)
+
+### Convergence
+![Convergence](docs/images/convergence.png)
+
+Cd settles at the theoretical value after about 7,500 iterations and stays there. Over the last 2,000 iterations Cd, Cl and surface pressures meet the convergence criteria; the mass-flux balance and the field-wide ΔCp RMS (8.8e−5) do not, which points to small residual oscillations in the flow field away from the airfoil.
+
+Regenerate all figures with:
+```bash
+python3 plot_results.py
+```
+
 ## Validation
 
-**Analytical reference** (`validation/theory.txt`): oblique shock + Prandtl–Meyer expansion
-
-| Quantity | Theory |
-|---|---|
-| Shock angle β | 23.70° |
-| Front surface p/p∞ | 1.5299 |
-| Rear surface p/p∞ | 0.6293 |
-| Front surface Mach | 2.715 |
-| Rear surface Mach | 3.308 |
-| Cd (wave drag) | 0.014295 |
-| Cl | 0 |
+**Analytical reference:** `validation/theory.txt` (oblique shock + Prandtl–Meyer expansion), compared in the Results table above.
 
 **Mesh quality:** `checkMesh` → Mesh OK, max non-orthogonality 5.71°, max skewness 0.244.
 
@@ -108,6 +139,7 @@ After at least 5000 iterations, `monitor.py` checks the last 2000:
 - Inviscid: Cd is **pressure (wave) drag only**; no skin friction, heat transfer or boundary layer.
 - 2D: no finite-span effects.
 - No mesh-independence study yet.
+- Not all convergence criteria are met (see Convergence above).
 
 ## References
 

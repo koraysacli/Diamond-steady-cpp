@@ -1,0 +1,16 @@
+{
+  "iteration": 20000,
+  "Cd_pressure": 0.014285549521446228,
+  "Cl_pressure": 5.467312007567671e-07,
+  "Cd_theory": 0.014294779667008548,
+  "Cd_error_percent": -0.06457138806581497,
+  "shock_angle_deg_cfd": {
+    "upper": 23.81789501447615,
+    "lower": 23.81789501447616
+  },
+  "shock_angle_deg_theory": 23.700977741077317,
+  "p_front_over_pinf_theory": 1.5298663887474864,
+  "p_rear_over_pinf_theory": 0.6292952697289421,
+  "p_front_over_pinf_cfd": 1.52956140626,
+  "p_rear_over_pinf_cfd": 0.629572536398
+}
