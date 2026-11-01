@@ -11,13 +11,13 @@
 namespace fs=std::filesystem;
 using namespace diamond;
 using Face=std::array<int,4>;
-std::string read(const fs::path& p) { std::ifstream in(p); if(!in) throw std::runtime_error("Dosya bulunamadi: "+p.string()); return {std::istreambuf_iterator<char>(in),{}}; }
+std::string read(const fs::path& p) { std::ifstream in(p); if(!in) throw std::runtime_error("File not found: "+p.string()); return {std::istreambuf_iterator<char>(in),{}}; }
 int main(int argc,char** argv) try {
     if(argc<2) throw std::runtime_error("generateCase CASE [coarse]");
     const fs::path root=fs::absolute(argv[1]), src=fs::path(__FILE__).parent_path();
     const bool coarse=argc>2 && std::string(argv[2])=="coarse";
     if(fs::exists(root/"constant/polyMesh/points") || fs::exists(root/"processor0"))
-        throw std::runtime_error("Mevcut mesh/sonuclarin ustune yazilmaz. Yeni vaka dizini kullanin.");
+        throw std::runtime_error("Refusing to overwrite existing mesh/results. Use a new case directory.");
     for(auto d:{"0","system","constant","src"}) fs::create_directories(root/d);
     if(fs::canonical(src)!=fs::canonical(root/"src")) {
         for(const auto& entry: fs::directory_iterator(src))
@@ -26,7 +26,7 @@ int main(int argc,char** argv) try {
             if(fs::exists(src.parent_path()/name)) fs::copy_file(src.parent_path()/name,root/name,fs::copy_options::overwrite_existing);
     }
     auto write=[&](const std::string& path,const std::string& body,const std::string& cls="dictionary") {
-        std::ofstream f(root/path); if(!f) throw std::runtime_error("Yazilamadi: "+path);
+        std::ofstream f(root/path); if(!f) throw std::runtime_error("Cannot write: "+path);
         f<<"FoamFile { version 2.0; format ascii; class "<<cls<<"; object "<<fs::path(path).filename().string()<<"; }\n"<<body;
     };
     auto str=[](double x){std::ostringstream s;s<<std::setprecision(15)<<x;return s.str();};

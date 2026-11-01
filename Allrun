@@ -4,15 +4,15 @@ export HWLOC_COMPONENTS=-gl OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THR
 source /opt/openfoam14/etc/bashrc ParaView_TYPE=none
 set -euo pipefail
 exec 9>.run.lock
-flock -n 9 || { echo 'Bu vaka zaten calisiyor.'; exit 1; }
-trap 'echo "HATA: log dosyalarini kontrol edin; tamamlanma/yakinsama dogrulanmadi."' ERR
+flock -n 9 || { echo 'This case is already running.'; exit 1; }
+trap 'echo "ERROR: check the log files; completion/convergence not verified."' ERR
 if [ ! -f system/blockMeshDict ]; then
     mkdir -p build
     g++ -std=c++17 -O2 -Wall -Wextra "$PWD/src/generateCase.cpp" -o build/generateCase
     build/generateCase "$PWD"
 fi
 if [ ! -f constant/polyMesh/points ]; then
-    echo '1.2 milyon hucreli ag olusturuluyor.'
+    echo 'Generating the 1.2 million cell mesh.'
     blockMesh > log.blockMesh 2>&1
 fi
 if [ ! -f log.checkMesh ] || ! grep -q 'Mesh OK' log.checkMesh; then
@@ -21,8 +21,8 @@ fi
 grep -q 'Mesh OK' log.checkMesh
 if [ ! -d processor0 ]; then decomposePar > log.decomposePar 2>&1; fi
 n=$(foamDictionary system/decomposeParDict -entry numberOfSubdomains -value)
-echo "$n MPI sureci: localEuler ile steady yakinSamasi. Time fiziksel saniye DEGILDIR."
+echo "$n MPI processes: steady convergence with localEuler. Time is NOT physical seconds."
 mpirun -np "$n" --bind-to core foamRun -parallel > log.foamRun 2>&1
-echo 'Son kayit birlestiriliyor.'
+echo 'Reconstructing the latest write.'
 reconstructPar -latestTime > log.reconstructPar 2>&1
-echo 'Calisma tamamlandi. Yakinsama icin postProcessing/steadyDiagnostics/coefficients.csv kontrol edilmeli.'
+echo 'Run finished. Check postProcessing/steadyDiagnostics/coefficients.csv for convergence.'

@@ -33,9 +33,9 @@ for base in roots:
         if complete:times.add(t)
     valid.append(times)
 times=set.intersection(*valid)
-if not times:sys.exit('Tamamlanmis kayit bekleniyor.')
+if not times:sys.exit('Waiting for a complete write.')
 t=args.iteration if args.iteration is not None else max(times)
-if t not in times:sys.exit('Secilen kayit tum sureclerde tamamlanmis degil.')
+if t not in times:sys.exit('Selected write is not complete on all processors.')
 params={}
 for line in (root/'case-summary.txt').read_text().splitlines():
     if '=' in line:

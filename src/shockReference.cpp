@@ -2,7 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
-// Egik sok + Prandtl-Meyer genislemesi: 2D, inviscid, sifir hucum acisi.
+// Oblique shock + Prandtl-Meyer expansion: 2D, inviscid, zero angle of attack.
 double thetaBeta(double beta,double M) {
     const double g=diamond::gamma;
     return std::atan(2/std::tan(beta)*(M*M*std::pow(std::sin(beta),2)-1)/(M*M*(g+std::cos(2*beta))+2));
@@ -16,9 +16,9 @@ int main() {
     const double g=diamond::gamma, M=diamond::mach, pi=std::acos(-1.0);
     const double theta=std::atan(2*diamond::halfThickness/diamond::chord);
     double lo=std::asin(1/M),hi=lo;
-    // Zayif sok dalini ilk kokte sec; ayrilmis sok icin hata ver.
+    // Take the weak-shock branch at the first root; error for a detached shock.
     while(hi<pi/2 && thetaBeta(hi,M)<theta) hi+=0.0001;
-    if(hi>=pi/2) {std::cerr<<"Attached weak shock bulunamadi\n";return 1;}
+    if(hi>=pi/2) {std::cerr<<"No attached weak shock found\n";return 1;}
     for(int i=0;i<100;++i){double mid=(lo+hi)/2;if(thetaBeta(mid,M)<theta)lo=mid;else hi=mid;}
     const double beta=(lo+hi)/2, Mn=M*std::sin(beta);
     const double pr=1+2*g/(g+1)*(Mn*Mn-1);

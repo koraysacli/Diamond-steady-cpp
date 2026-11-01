@@ -1,4 +1,4 @@
-// Her reportEvery iterasyonda, tum MPI sureclerinin katkisini topla.
+// Every reportEvery iterations, sum contributions from all MPI processes.
 const auto c = diamond::conditions();
 const auto& p = mesh().lookupObject<volScalarField>("p");
 const auto& T = mesh().lookupObject<volScalarField>("T");
@@ -14,7 +14,7 @@ forAll(mesh().boundary(), patchi) {
         const auto& sf=mesh().Sf().boundaryField()[patchi];
         const auto& cf=mesh().Cf().boundaryField()[patchi];
         forAll(pp, facei) {
-            // Sf: akiskan disina, kati icine; bu nedenle arti isaret.
+            // Sf points out of the fluid, into the solid; hence the plus sign.
             force += (pp[facei]-c.p)*sf[facei];
             if (cf[facei].x()<diamond::chord/2) {
                 frontPressure += pp[facei]*mag(sf[facei]); frontArea += mag(sf[facei]);
