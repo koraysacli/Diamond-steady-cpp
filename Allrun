@@ -11,6 +11,7 @@ if [ ! -f system/blockMeshDict ]; then
     g++ -std=c++17 -O2 -Wall -Wextra "$PWD/src/generateCase.cpp" -o build/generateCase
     build/generateCase "$PWD"
 fi
+touch diamond.foam  # ParaView reader file (ignored by git)
 if [ ! -f constant/polyMesh/points ]; then
     echo 'Generating the 1.2 million cell mesh.'
     blockMesh > log.blockMesh 2>&1
