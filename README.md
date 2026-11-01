@@ -1,76 +1,115 @@
-# Diamond: Mach 3, geniş alan, steady OpenFOAM
+# Diamond Airfoil — Mach 3 Steady Euler (OpenFOAM)
 
-OpenFOAM **Foundation 14**, `shockFluid`, 2D inviscid (Euler) akış. Hücum açısı **0°**, irtifa **80.000 ft**. Profil kord uzunluğu 0,2 m, tam kalınlığı 0,02 m; tek hücrelik düzlem dışı kalınlık 0,001 m. Profil, diamond.stl dosyasının dört köşeli kesitiyle aynıdır; ağ doğrudan bu kesite oturtulur.
+2D inviscid (Euler) OpenFOAM simulation of supersonic flow over a diamond airfoil. All case files are generated from C++ rather than written by hand, and results are compared against oblique-shock and Prandtl–Meyer theory.
 
-Akış alanı **x = −1…4 m, y = −2,5…2,5 m**. İlk 24.000 hücreli vakanın 0,6 × 0,4 m alanının yaklaşık 104 katı. Profil etrafında sıklaşan **1.200.000 altı yüzlü hücre**, **20 MPI süreci**. Akış alanı büyüdüğü için bütün alanı gösterirken profil ekranda küçük görünür.
+## Problem
 
-## Kod nerede?
+| Parameter | Value |
+|---|---|
+| Mach number | 3 |
+| Angle of attack | 0° |
+| Altitude | 80,000 ft (24,384 m), US Standard Atmosphere |
+| Freestream | T = 220.94 K, p = 2801.5 Pa, ρ = 0.04417 kg/m³, U = 893.9 m/s |
+| Airfoil | Chord 0.2 m, thickness 0.02 m (t/c = 10%), half-angle θ = 5.71° |
+| Domain | x = −1…4 m, y = −2.5…2.5 m |
+| Mesh | 1,200,000 hexahedral cells, refined around the airfoil |
+
+## Method
+
+- **Solver:** OpenFOAM Foundation 14, `foamRun` + `shockFluid`
+- **Model:** Euler (zero viscosity), perfect gas, γ = 1.4
+- **Time stepping:** `localEuler` (local time stepping) to steady state, `maxCo = 0.2`
+- **Flux scheme:** Kurganov with `Minmod` / `MinmodV` limiters
+- **Parallel:** 20 MPI processes
+
+> **Note:** `Time` in the log is the **iteration count**, not physical seconds.
+
+## Repository layout
 
 ```text
-src/CaseConfig.hpp      ← Mach, irtifa, açı, boyutlar; atmosfer if/else formülleri
-src/generateCase.cpp    ← for/if/else ile ağ, sınır koşulu ve sözlük üretimi
-src/inletVelocity.C     ← OpenFOAM içinde derlenen C++ hız koşulu
-src/diagnostics.C       ← C++ basınç kuvveti, Cl/Cd ve kütle dengesi
-src/shockReference.cpp  ← döngüyle çözülen eğik şok ve genleşme referansı
-0/, system/, constant/  ← C++ programının ürettiği OpenFOAM giriş dosyaları
-monitor.py              ← kayıtları okuyan Python izleyici (çözücüye dokunmaz)
-Allrun                  ← derleme, ağ, kontrol, paralel çözüm, reconstruction
+src/
+  CaseConfig.hpp       Mach, altitude, angle, geometry, standard atmosphere
+  generateCase.cpp     Generates mesh, boundary conditions and OpenFOAM dictionaries
+  inletVelocity.C      Inlet velocity boundary condition (codedFixedValue)
+  diagnostics.C        Pressure force, Cl/Cd and mass balance
+  shockReference.cpp   Analytical oblique shock + expansion solution
+0/ constant/ system/   Generated OpenFOAM input files
+validation/            Theoretical reference and serial/parallel test
+monitor.py             Live convergence monitor
+analyze.py             Post-processing
+Allrun                 End-to-end run script
 ```
 
-Uzun hız tabloları yoktur. OpenFOAM kendi sözlük dosyalarını gerektirir; bunları C++ üretir. Hız koşulu `codedFixedValue` ile çalışma sırasında ayrıca derlenir. C++ kaynaklarını değiştirmek çalışan analize kendiliğinden uygulanmaz. Değişiklikten sonra **yeni bir vaka dizini** üretin; mevcut mesh/sonuçların üzerine yazma koruması vardır.
+## Running
 
-```bash
-mkdir -p build
-g++ -std=c++17 -O2 -Wall -Wextra "$PWD/src/generateCase.cpp" -o build/generateCase
-build/generateCase /yeni/vaka/klasoru
-```
-
-## Çalıştırma ve görüntüleme
-
-Ubuntu'da Foundation 14 ve `g++` kurulu olmalı. Depo ana dizininde:
+Requirements: Ubuntu, OpenFOAM Foundation 14 (`/opt/openfoam14`), `g++` (C++17), Python 3.
 
 ```bash
 bash Allrun > log.Allrun 2>&1
 ```
 
-Ayrı bir terminalde, aynı dizinde:
+`Allrun` generates the case, builds the mesh, runs `checkMesh`, decomposes, solves in parallel and reconstructs the latest time. A lock prevents two runs at once.
 
+**Monitor** (in a second terminal):
 ```bash
 watch -n 10 python3 monitor.py
 ```
 
-Bu ekranda Ctrl+C sadece izleyiciyi kapatır. **Allrun çalışan terminalde Ctrl+C çözümü keser.** Kaydederek durdurmak için OpenFOAM ortamı yüklü ayrı terminalde:
-
+**Stop and save:**
 ```bash
 foamDictionary system/controlDict -entry stopAt -set writeNow
 ```
+To resume, set `stopAt` back to `endTime` and rerun `Allrun`; it continues from the latest write.
 
-Devam etmeden önce `stopAt` değerini `endTime` yapın; `startFrom latestTime` son kayıttan başlar. Analizi iki kez aynı anda başlatmayı `flock` engeller.
-
+**Visualise:**
 ```bash
 paraview --no-mpi diamond.foam
 ```
+Use *Case Type → Decomposed Case* while running, *Reconstructed Case* after completion.
 
-Çözüm sürerken ParaView'da **Case Type → Decomposed Case**, `internalMesh`, Apply ve son kayıtlı zamanı seçin. Tamamlanınca `reconstructPar -latestTime` çalışır; **Reconstructed Case** ile açılabilir. Bu vaka başka klasördeki eski `diamond.foam` dosyasından ayrıdır. `p`, `U` ve `T` alanları mevcuttur. `Time` değeri aşağıdaki LTS açıklamasına göre okunmalıdır.
+**Changing parameters:** edit `src/CaseConfig.hpp` and generate a case in a new directory (existing results are never overwritten):
+```bash
+mkdir -p build
+g++ -std=c++17 -O2 src/generateCase.cpp -o build/generateCase
+build/generateCase /path/to/new/case
+```
 
-## Steady ne anlama geliyor?
+## Convergence criteria
 
-`localEuler` yerel zaman adımıyla kararlı çözüme ilerler. Ekrandaki `Time = 1000s` yazısı burada **1000 sözde-zaman iterasyonu** demektir; 1000 saniyelik fiziksel transient değildir. Sabit sınır koşulları vardır. Maksimum 20.000 iterasyon otomatik bir yakınsama garantisi değildir.
+After at least 5000 iterations, `monitor.py` checks the last 2000:
 
-Kurganov akı şeması, `Minmod/MinmodV` sınırlayıcı ve yerel `maxCo = 0.2` kullanılır. İlk `vanLeer`, Co=0.5 denemesi büyüyen salınım ve negatif sıcaklık kaynaklı sayısal hata verdi; o deneme sonuç kabul edilmedi. Son tercih daha sönümlüdür; şok kalınlığı ve sürükleme için ağ/şema duyarlılığı yine incelenmelidir.
+| Quantity | Threshold |
+|---|---|
+| Cd variation | < 1e−5 |
+| \|Cl\| | < 1e−5 |
+| Normalised net mass flux | < 1e−4 |
+| ΔCp RMS (every 20 iterations) | < 1e−5 |
 
-Doğrusal çözücüde `diagonal` için görülen sıfır residual **yakınsama kanıtı değildir**. `monitor.py`, en az 5000 iterasyon ve son 2000 iterasyonluk pencereyi denetler: Cd değişimi <1e−5, |Cl|<1e−5, normalize net kütle akısı <1e−4, 20 adım arası hacim ağırlıklı ΔCp RMS <1e−5, ön/arka yüzey ortalama basınç oranlarının değişimi <0,001. Bunlar mühendislik eşikleri; alan çok büyük olduğu için hacim ağırlıklı değişim yerel hatayı gizleyebilir. Şok konumu, yüzey Cp ve ağ bağımsızlığı ayrıca incelenmelidir.
+## Validation
 
-## Kuvvetler ve şok
+**Analytical reference** (`validation/theory.txt`): oblique shock + Prandtl–Meyer expansion
 
-`F = Σ (p − p∞) Sf`, burada `Sf` akışkandan katıya yönelir. Referans alanı **kord × düzlem dışı kalınlık = 0,0002 m²**, dinamik basınç `q∞ = ρ∞ U∞²/2`. Akış yönündeki kuvvetten Cd, dik yönden Cl hesaplanır. Her MPI sürecinin katkısı toplanır.
+| Quantity | Theory |
+|---|---|
+| Shock angle β | 23.70° |
+| Front surface p/p∞ | 1.5299 |
+| Rear surface p/p∞ | 0.6293 |
+| Front surface Mach | 2.715 |
+| Rear surface Mach | 3.308 |
+| Cd (wave drag) | 0.014295 |
+| Cl | 0 |
 
-Modelde **viskozite sıfır**: Cd yalnızca basınç/dalga sürüklemesidir; gerçek toplam sürükleme veya sınır tabaka ayrılması olarak yorumlanmaz. 0° ve simetrik profil için Cl sıfıra yaklaşmalıdır. Gerçek viskoz çözüm için duvar ağı, Reynolds sayısı ve uygun türbülans/laminer model ayrı bir çalışma gerektirir.
+**Mesh quality:** `checkMesh` → Mesh OK, max non-orthogonality 5.71°, max skewness 0.244.
 
-`validation/theory.txt` analitik referanstır, CFD sonucu değildir. Zayıf eğik şok + Prandtl–Meyer genleşmesi: β≈23,70098°, Cd≈0,01429478, Cl=0, ön yüzey p/p∞≈1,529866, arka yüzey≈0,629295. Şok bağıntıları için [NASA eğik şok açıklaması](https://www.grc.nasa.gov/WWW/BGH/oblique.html). Çözümden ayrıca şok açısı, basınç sıçraması, Mach alanı ve yüzey Cp kontrol edilmelidir.
+**Serial vs. parallel test** (12,000 cells, 40 iterations): Cd and Cl differ by < 1e−6.
 
-## Doğrulama ve paylaşım
+## Limitations
 
-`checkMesh`: 1.200.000 hücre, pozitif hacimler, maksimum non-orthogonality 5,71°, skewness 0,244, **Mesh OK**. 12.000 hücrelik ayrı testte C++ sınır koşulu/izleyici derlendi; 40 adımda seri ve 2 süreçli Cd/Cl farkı 1e−6 altında, temiz kapanış doğrulandı. Bu kısa test yakınsama veya ağ bağımsızlığı testi değildir.
+- Inviscid: Cd is **pressure (wave) drag only**; no skin friction, heat transfer or boundary layer.
+- 2D: no finite-span effects.
+- No mesh-independence study yet.
 
-GitHub'a kaynaklar, küçük giriş dosyaları ve doğrulama özeti gönderilir. `.gitignore`: mesh, processor dizinleri, zaman sonuçları, loglar, dynamicCode ve derlenmiş ürünleri dışarıda bırakır. Üretilmiş sonuçlar yerelde korunur.
+## References
+
+- NASA Glenn, *Oblique Shock Waves*: https://www.grc.nasa.gov/WWW/BGH/oblique.html
+- *U.S. Standard Atmosphere, 1976*, NASA-TM-X-74335
